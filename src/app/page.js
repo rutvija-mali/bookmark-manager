@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/supabase-client";
 
+// Simple SVG icon for the Google sign-in button.
 const GoogleIcon = () => (
   <svg className="w-5 h-5" viewBox="0 0 24 24">
     <path
@@ -28,6 +29,8 @@ export default function Home() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // Read any error code passed back from the `/auth/callback` route
+    // so we can show a friendly error message on the login screen.
     const urlParams = new URLSearchParams(window.location.search);
     const authError = urlParams.get("error");
     if (authError === "auth_failed") {
@@ -35,6 +38,7 @@ export default function Home() {
     }
   }, []);
 
+  // Start the Google OAuth flow using Supabase.
   const handleLogin = async () => {
     if (!supabase) {
       setError("Supabase is not configured. Please check your environment variables.");
@@ -48,6 +52,8 @@ export default function Home() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
+          // After the Google consent screen, Supabase will redirect
+          // back to this URL, which is handled by `app/auth/callback/route.js`.
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
