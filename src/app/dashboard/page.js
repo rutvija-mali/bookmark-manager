@@ -71,7 +71,8 @@ export default function Dashboard() {
     .on(
       "postgres_changes",
       { event: "update", schema: "public", table: "bookmarks" },
-      () => {
+      (payload) => {
+        console.log("REALTIME EVENT:", payload);
         fetchBookmarks();
       }
     );
