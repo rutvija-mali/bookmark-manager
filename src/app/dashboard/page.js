@@ -56,13 +56,30 @@ export default function Dashboard() {
 
     const channel = supabase.channel("bookmark-channel").on(
       "postgres_changes",
-      { event: "*", schema: "public", table: "bookmarks" },
+      { event: "INSERT", schema: "public", table: "bookmarks" },
+      () => {
+        fetchBookmarks();
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "DELETE", schema: "public", table: "bookmarks" },
+      () => {
+        fetchBookmarks();
+      }
+    )
+    .on(
+      "postgres_changes",
+      { event: "update", schema: "public", table: "bookmarks" },
       () => {
         fetchBookmarks();
       }
     );
 
-    channel.subscribe();
+
+
+    channel.subscribe((status)=> console.log("Real-time subscription status:", status));
+    
 
     return () => {
       supabase.removeChannel(channel);
