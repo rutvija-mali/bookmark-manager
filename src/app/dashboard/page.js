@@ -57,7 +57,7 @@ export default function Dashboard() {
     const channel = supabase.channel("bookmark-channel").on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "bookmarks" },
-      () => {
+      (payload) => {
         setBookmarks((prevBookmarks) => [...prevBookmarks, payload]);
       }
     )
