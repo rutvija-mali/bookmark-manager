@@ -58,22 +58,26 @@ export default function Dashboard() {
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "bookmarks" },
       (payload) => {
-        setBookmarks((prevBookmarks) => [...prevBookmarks, payload]);
+
+        setBookmarks((prevBookmarks) => [...prevBookmarks, payload.new]);
       }
     )
     .on(
       "postgres_changes",
       { event: "DELETE", schema: "public", table: "bookmarks" },
-      () => {
-        fetchBookmarks();
+      (payload) => {
+       const removedBookmark = payload.old;
+       setBookmarks((prevBookmarks)=> prevBookmarks.filter((bookmark)=> bookmark.id != removedBookmark.id))
       }
     )
     .on(
       "postgres_changes",
       { event: "update", schema: "public", table: "bookmarks" },
       (payload) => {
-        console.log("REALTIME EVENT:", payload);
-        fetchBookmarks();
+       const updatedBookmark = payload.new;
+       console.log("UPDATED BOOKMARK:", updatedBookmark);
+       
+       setBookmarks((prevBookmarks)=> prevBookmarks.map((bookmark)=> bookmark.id === updatedBookmark.id ? updatedBookmark : bookmark))
       }
     );
 
@@ -103,11 +107,12 @@ export default function Dashboard() {
   };
 
   const handleDelete = async (id) => {
+    if (!supabase) return;
+
+    const previousBookmarks = [...bookmarks];
+    setBookmarks((prev) => prev.filter((b) => b.id !== id));
+
     try {
-      if (!supabase) return;
-
-      setIsLoading(true);
-
       const {
         data: { user },
         error: userError,
@@ -115,14 +120,15 @@ export default function Dashboard() {
       if (userError) throw userError;
       if (!user) throw new Error("Not authenticated");
 
-      await supabase
+      const { error } = await supabase
         .from("bookmarks")
         .delete()
         .eq("id", id)
         .eq("user_id", user.id);
 
-      setIsLoading(false);
+      if (error) throw error;
     } catch (error) {
+      setBookmarks(previousBookmarks);
       setError(error);
       console.error("Error in deleting", error);
     }
