@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { supabase } from "@/supabase-client";
 
-export default function AddBookmarkModal({ open, onClose, bookmark }) {
+export default function AddBookmarkModal({ open, onClose, bookmark, setBookmarks }) {
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [error, setError] = useState(null);
@@ -35,22 +35,32 @@ export default function AddBookmarkModal({ open, onClose, bookmark }) {
       } = await supabase.auth.getUser();
 
       if (!isEdit) {
-        const { error } = await supabase.from("bookmarks").insert({
+        const { data, error } = await supabase
+          .from("bookmarks")
+          .insert({
             title,
             url,
             user_id: user.id,
-          });
-
+          })
+          .select()
+          .single();
+        
         if (error) throw error;
+        setBookmarks((prev) => [data, ...prev]);
       }
 
       if (isEdit) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from("bookmarks")
           .update({ title, url })
-          .eq("id", bookmark.id);
+          .eq("id", bookmark.id)
+          .select()
+          .single();
 
         if (error) throw error;
+        setBookmarks((prev) =>
+          prev.map((b) => (b.id === data.id ? data : b))
+        );
       }
     } catch (error) {
       setError(error);

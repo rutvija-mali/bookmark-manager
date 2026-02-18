@@ -54,12 +54,15 @@ export default function Dashboard() {
   useEffect(() => {
     if (!supabase) return;
 
-    const channel = supabase.channel("bookmark-channel").on(
+    const channel = supabase.channel("bookmark-channel")    .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "bookmarks" },
       (payload) => {
-        console.log("NEW BOOKMARK:", payload.new);
-        setBookmarks((prevBookmarks) => [...prevBookmarks, payload.new]);
+        setBookmarks((prev) => {
+          const exists = prev.some((b) => b.id === payload.new.id);
+          if (exists) return prev;
+          return [payload.new, ...prev];
+        });
       }
     )
     .on(
@@ -72,12 +75,14 @@ export default function Dashboard() {
     )
     .on(
       "postgres_changes",
-      { event: "update", schema: "public", table: "bookmarks" },
+      { event: "UPDATE", schema: "public", table: "bookmarks" },
       (payload) => {
-       const updatedBookmark = payload.new;
-       console.log("UPDATED BOOKMARK:", updatedBookmark);
-       
-       setBookmarks((prevBookmarks)=> prevBookmarks.map((bookmark)=> bookmark.id === updatedBookmark.id ? updatedBookmark : bookmark))
+        const updatedBookmark = payload.new;
+        setBookmarks((prev) =>
+          prev.map((bookmark) =>
+            bookmark.id === updatedBookmark.id ? updatedBookmark : bookmark
+          )
+        );
       }
     );
 
@@ -228,6 +233,7 @@ export default function Dashboard() {
           open={modalOpen}
           onClose={handleCloseModal}
           bookmark={selectedBookmark}
+          setBookmarks={setBookmarks}
         />
       </div>
     </div>
