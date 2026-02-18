@@ -58,7 +58,7 @@ export default function Dashboard() {
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "bookmarks" },
       (payload) => {
-
+        console.log("NEW BOOKMARK:", payload.new);
         setBookmarks((prevBookmarks) => [...prevBookmarks, payload.new]);
       }
     )
