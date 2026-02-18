@@ -28,7 +28,6 @@ export default function Dashboard() {
       if (userError) throw userError;
       if (!user) {
         setBookmarks([]);
-        setIsLoading(false);
         return;
       }
 
@@ -38,12 +37,13 @@ export default function Dashboard() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      setIsLoading(false);
       if (error) throw error;
       setBookmarks(data ?? []);
     } catch (error) {
       setError(error);
       console.error("Error in fetching bookmarks", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,45 +54,66 @@ export default function Dashboard() {
   useEffect(() => {
     if (!supabase) return;
 
-    const channel = supabase.channel("bookmark-channel")    .on(
-      "postgres_changes",
-      { event: "INSERT", schema: "public", table: "bookmarks" },
-      (payload) => {
-        setBookmarks((prev) => {
-          const exists = prev.some((b) => b.id === payload.new.id);
-          if (exists) return prev;
-          return [payload.new, ...prev];
-        });
+    let channel;
+    let cancelled = false;
+
+    (async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (cancelled) return;
+      if (userError) {
+        setError(userError);
+        return;
       }
-    )
-    .on(
-      "postgres_changes",
-      { event: "DELETE", schema: "public", table: "bookmarks" },
-      (payload) => {
-       const removedBookmark = payload.old;
-       setBookmarks((prevBookmarks)=> prevBookmarks.filter((bookmark)=> bookmark.id != removedBookmark.id))
-      }
-    )
-    .on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "bookmarks" },
-      (payload) => {
-        const updatedBookmark = payload.new;
-        setBookmarks((prev) =>
-          prev.map((bookmark) =>
-            bookmark.id === updatedBookmark.id ? updatedBookmark : bookmark
-          )
+      if (!user) return;
+
+      const filter = `user_id=eq.${user.id}`;
+
+      channel = supabase
+        .channel(`bookmark-channel:${user.id}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "bookmarks", filter },
+          (payload) => {
+            setBookmarks((prev) => {
+              const exists = prev.some((b) => b.id === payload.new.id);
+              if (exists) return prev;
+              return [payload.new, ...prev];
+            });
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "DELETE", schema: "public", table: "bookmarks", filter },
+          (payload) => {
+            const removedBookmark = payload.old;
+            setBookmarks((prev) =>
+              prev.filter((bookmark) => bookmark.id !== removedBookmark.id)
+            );
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "bookmarks", filter },
+          (payload) => {
+            const updatedBookmark = payload.new;
+            setBookmarks((prev) =>
+              prev.map((bookmark) =>
+                bookmark.id === updatedBookmark.id ? updatedBookmark : bookmark
+              )
+            );
+          }
         );
-      }
-    );
 
-
-
-    channel.subscribe((status)=> console.log("Real-time subscription status:", status));
-    
+      channel.subscribe();
+    })();
 
     return () => {
-      supabase.removeChannel(channel);
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
     };
   }, []);
 
