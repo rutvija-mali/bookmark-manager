@@ -34,11 +34,31 @@ Then open `http://localhost:3000`.
 
 The Google OAuth + Supabase wiring for this app was implemented by following a Supabase/Next.js OAuth tutorial and then adapting it to match the assignment requirements.
 
-### Problem faced – realtime updates
+### Challenges Faced & Solutions
 
-- **Problem**: Realtime updates were not working consistently; the UI didn’t update reliably when switching tabs or navigating between pages.
-- **Cause**: Supabase realtime subscriptions were not cleaned up, which could leave duplicate or stale listeners active.
-- **Solution**: Added a cleanup function in `useEffect` on the dashboard page to remove the channel with `supabase.removeChannel(channel)` when the component unmounts, so there is always a single, fresh subscription.
+1. Realtime subscription inconsistency across tabs
+
+Problem:
+Realtime updates for bookmarks were inconsistent across browser tabs — sometimes updates appeared, sometimes they didn’t.
+
+Cause:
+Subscription was listening to all rows without filtering, while Row Level Security (RLS) only allowed access to user-specific rows.
+
+Solution:
+Scoped the realtime channel using a filter:
+
+filter: `user_id=eq.${user.id}`
+
+This aligned the subscription with RLS policies and made realtime updates consistent across tabs.
+
+2. Same-tab UI not updating after insert
+
+Problem:
+New bookmarks added in the same tab were not visible immediately.
+
+Solution:
+Implemented optimistic UI updates by updating local state immediately after insert instead of waiting for realtime events.
+
 
 ### Deployment
 
